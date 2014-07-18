@@ -11,8 +11,8 @@ var start_time = null;
 var end_time = null;
 var buddies = [];
 
-var upnpClient = ssdp();
-var upnpServer = ssdp();
+var upnpClient = new ssdp();
+var upnpServer = new ssdp();
 //var units = ['TB', 'GB', 'MB', 'KB', 'Bytes']
 
 //function humanizeSize(size) {
@@ -66,8 +66,8 @@ function receiveData() {
     });
   });
 
+  upnpServer.announce({name:'239.255.255.250', port:1900});
   server.listen(6666);
-  upnpServer.announce('device:server');
 }
 
 function sendData(filepath, host) {
@@ -104,6 +104,7 @@ function sendData(filepath, host) {
 }
 
 function listBuddies() {
+  upnpClient.search('239.255.255.250');
 }
 
 function reset() {
