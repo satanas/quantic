@@ -66,7 +66,7 @@ function receiveData() {
     });
   });
 
-  upnpServer.announce({name:'239.255.255.250', port:1900});
+  upnpServer.announce({name:'192.168.0.101', port:6666});
   server.listen(6666);
 }
 
@@ -126,7 +126,7 @@ function printUsage(errorMessage) {
 }
 
 upnpClient.on('up', function(address) {
-  console.log('buddy added', address, 'hola');
+  console.log('buddy added', address, 'chao');
 });
 
 upnpClient.on('down', function(address) {
