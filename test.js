@@ -101,6 +101,10 @@ function spawnAndReceive(filename, filesize, chunks) {
             servers.forEach(function(serv) {
               serv.close();
             });
+
+            end_time = Date.now();
+            var total_time = end_time - start_time;
+
             randomFile.close();
 
             console.log('Transfer finished');
