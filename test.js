@@ -96,11 +96,11 @@ function spawnAndReceive(filename, filesize, chunks) {
           start_time = Date.now();
         }
         randomFile.write(offset, buf, function(err) {
-          bytes += buf.length;
-          offset += buf.length;
           console.log('chunk', offset, buf.length, bytes, filesize);
           console.log('***********************************');
           console.log(buf.toString());
+          bytes += buf.length;
+          offset += buf.length;
           if (bytes === filesize) {
             console.log('servers', servers.length, servers);
             servers.forEach(function(serv) {
