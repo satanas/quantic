@@ -91,7 +91,7 @@ function spawnAndReceive(filename, filesize, chunks) {
     var s = net.createServer(function(socket) {
       var offset = c.value;
       socket.on('data', function(buf) {
-        console.log('socket buffer', buf.toString());
+        //console.log('socket buffer', buf.toString());
         if (start_time === null) {
           start_time = Date.now();
         }
