@@ -92,14 +92,14 @@ function spawnAndReceive(filename, filesize, chunks) {
       var startOffset = c.value;
       var currOffset = c.value;
       socket.on('data', function(buf) {
-        console.log('incoming', startOffset, currOffset, buf.length);
+        //console.log('incoming', startOffset, currOffset, buf.length);
         if (start_time === null) {
           start_time = Date.now();
         }
         randomFile.write(currOffset, buf, function(err, written) {
           bytes += written;
-          console.log('writing', startOffset, currOffset, written, bytes);
-          console.log('***********************************');
+          //console.log('writing', startOffset, currOffset, written, bytes);
+          //console.log('***********************************');
           if (bytes === filesize) {
             //console.log('servers', servers.length, servers);
             servers.forEach(function(serv) {
@@ -215,9 +215,9 @@ function splitAndSend(filepath, offsets, host) {
           start_time = Date.now();
         }
         bytes += chunk.length;
-        console.log('sendind chunk', o.value, chunk.length, bytes);
-        console.log('***********************************');
-        console.log(chunk.toString());
+        //console.log('sendind chunk', o.value, chunk.length, bytes);
+        //console.log('***********************************');
+        //console.log(chunk.toString());
         c.write(chunk);
         c.end();
       });
