@@ -95,8 +95,8 @@ function spawnAndReceive(filename, filesize, chunks) {
         if (start_time === null) {
           start_time = Date.now();
         }
-        randomFile.write(offset, buf, function(err) {
-          console.log('chunk', offset, buf.length, bytes, filesize);
+        randomFile.write(offset, buf, function(err, written, buf) {
+          console.log('chunk', offset, buf.length, bytes, written, filesize);
           console.log('***********************************');
           console.log(buf.toString());
           bytes += buf.length;
