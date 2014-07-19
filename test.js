@@ -100,7 +100,7 @@ function spawnAndReceive(filename, filesize, chunks) {
           offset += buf.length;
           console.log('chunk', offset, buf.length, bytes, filesize);
           console.log('***********************************');
-          console.log(chunk.toString());
+          console.log(buf.toString());
           if (bytes === filesize) {
             console.log('servers', servers.length, servers);
             servers.forEach(function(serv) {
