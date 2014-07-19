@@ -98,7 +98,9 @@ function spawnAndReceive(filename, filesize, chunks) {
         randomFile.write(offset, buf, function(err) {
           bytes += buf.length;
           offset += buf.length;
-          console.log('chunk', buf.length, bytes, filesize, buf.toString());
+          console.log('chunk', offset, buf.length, bytes, filesize);
+          console.log('***********************************');
+          console.log(chunk.toString());
           if (bytes === filesize) {
             console.log('servers', servers.length, servers);
             servers.forEach(function(serv) {
@@ -213,7 +215,9 @@ function splitAndSend(filepath, offsets, host) {
           start_time = Date.now();
         }
         bytes += chunk.length;
-        console.log('sendind chunk', chunk.length, bytes, chunk.toString());
+        console.log('sendind chunk', o.value, chunk.length, bytes);
+        console.log('***********************************');
+        console.log(chunk.toString());
         c.write(chunk);
         c.end();
       });
