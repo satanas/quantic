@@ -90,13 +90,23 @@ function spawnAndReceive(filename, filesize, chunks) {
   chunks.forEach(function(c) {
     var s = net.createServer(function(socket) {
       socket.on('data', function(buf) {
+        if (start_time === null) {
+          start_time = Date.now();
+        }
         randomFile.write(c.value, buf, function(err) {
           bytes += buf.length;
           console.log('chunk', buf.length, bytes, filesize);
           if (bytes === filesize) {
-            console.log('Transfer finished');
             console.log('servers', servers.length, servers);
+            servers.forEach(function(serv) {
+              serv.close();
+            });
             randomFile.close();
+
+            console.log('Transfer finished');
+            console.log('Sent: ' + bytes + ' bytes');
+            console.log('Time spent: ' + total_time + 'ms');
+            console.log('Rate: ' + ((bytes / 1000) / (total_time / 1000)) + ' KB/sec');
           }
         });
       });
@@ -192,6 +202,9 @@ function splitAndSend(filepath, offsets, host) {
   offsets.forEach(function(o) {
     randomFile.read(o.value, o.size, function(err, chunk) {
       var c = net.connect(o.port, host, function() {
+        if (start_time === null) {
+          start_time = Date.now();
+        }
         bytes += chunk.length;
         console.log('sendind chunk', chunk.length, bytes);
         c.write(chunk);
@@ -202,9 +215,16 @@ function splitAndSend(filepath, offsets, host) {
         var i = clients.indexOf(c);
         clients.splice(i, 1);
         if (clients.length === 0) {
-          console.log('Transfer finished');
           console.log('clients', clients.length, clients);
+          end_time = Date.now();
+          var total_time = end_time - start_time;
+
           randomFile.close();
+
+          console.log('Transfer finished');
+          console.log('Sent: ' + bytes + ' bytes');
+          console.log('Time spent: ' + total_time + 'ms');
+          console.log('Rate: ' + ((bytes / 1000) / (total_time / 1000)) + ' KB/sec');
         }
       });
       clients.push(c);
