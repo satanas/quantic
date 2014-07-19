@@ -92,14 +92,15 @@ function spawnAndReceive(filename, filesize, chunks) {
       var startOffset = c.value;
       var currOffset = c.value;
       socket.on('data', function(buf) {
+        console.log('incoming', startOffset, currOffset, buf.length);
         if (start_time === null) {
           start_time = Date.now();
         }
         randomFile.write(currOffset, buf, function(err, written, b) {
-          console.log('chunk', startOffset, currOffset, written, bytes, filesize);
+          bytes += written;
+          console.log('writing', startOffset, currOffset, written, bytes);
           console.log('***********************************');
           //console.log(b.toString());
-          bytes += written;
           currOffset += written;
           if (bytes === filesize) {
             //console.log('servers', servers.length, servers);
