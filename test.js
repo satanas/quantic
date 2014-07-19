@@ -96,12 +96,10 @@ function spawnAndReceive(filename, filesize, chunks) {
         if (start_time === null) {
           start_time = Date.now();
         }
-        randomFile.write(currOffset, buf, function(err, written, b) {
+        randomFile.write(currOffset, buf, function(err, written) {
           bytes += written;
           console.log('writing', startOffset, currOffset, written, bytes);
           console.log('***********************************');
-          //console.log(b.toString());
-          currOffset += written;
           if (bytes === filesize) {
             //console.log('servers', servers.length, servers);
             servers.forEach(function(serv) {
@@ -119,6 +117,7 @@ function spawnAndReceive(filename, filesize, chunks) {
             console.log('Rate: ' + ((bytes / 1000) / (total_time / 1000)) + ' KB/sec');
           }
         });
+        currOffset += buf.length;
       });
 
       socket.on('end', function() {
