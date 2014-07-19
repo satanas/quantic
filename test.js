@@ -17,30 +17,10 @@ var start_time = null;
 var end_time = null;
 var buddies = [];
 
-//var units = ['TB', 'GB', 'MB', 'KB', 'Bytes']
-
-//function humanizeSize(size) {
-//  var index = 0;
-//  var power = 12;
-//
-//  while true {
-//    var c = size / Math.pow(10, power);
-//    console.log(c);
-//    if (c > 0) {
-//      power -= 3;
-//      index += 1;
-//    } else {
-//      break;
-//    }
-//  }
-//  return (size / Math.pow(10, power)) + " " + units[index];
-//}
-//
-
 Offset = function(value, size, port) {
-  this.value = value;
-  this.size = size;
-  this.port = port;
+  this.value = parseInt(value);
+  this.size = parseInt(size);
+  this.port = parseInt(port);
 }
 
 var bus = http.createServer(function(req, res) {
@@ -49,7 +29,7 @@ var bus = http.createServer(function(req, res) {
   if (parsedUrl.pathname === '/initialize') {
     console.log('Initializing');
     var filename = req.headers.filename;
-    var filesize = req.headers.filesize;
+    var filesize = parseInt(req.headers.filesize);
     var chunks = []
     req.headers.chunks.split(",").forEach(function(c) {
       var value = c.split("-")[0];
@@ -104,27 +84,34 @@ function receiveData() {
 }
 
 function spawnAndReceive(filename, filesize, chunks) {
-  console.log(filename, filesize, chunks);
-
   var randomFile = raf(filename);
-  var servers = []
+  var servers = [];
+
   chunks.forEach(function(c) {
     var s = net.createServer(function(socket) {
       socket.on('data', function(buf) {
         randomFile.write(c.value, buf, function(err) {
-          console.log('chunk done');
-          var i = servers.indexOf(s);
-          servers.splice(i, 1);
-          if (servers.length === 0) {
+          bytes += buf.length;
+          console.log('chunk', buf.length, bytes, filesize);
+          if (bytes === filesize) {
             console.log('Transfer finished');
+            console.log('servers', servers.length, servers);
             randomFile.close();
           }
         });
       });
+
+      socket.on('end', function() {
+        console.log('socket ended');
+      });
     });
 
-    s.listen(c.port);
+    s.on('close', function() {
+      console.log('server ended');
+    });
+
     servers.push(s);
+    s.listen(c.port);
   });
 }
 
@@ -160,8 +147,6 @@ function sendData(filepath, host) {
     }
   }, function(res) {
     console.log('Initialized');
-    console.log(res.statusCode);
-    console.log(res.headers);
     splitAndSend(filepath, offsets, host);
   });
 
@@ -208,14 +193,17 @@ function splitAndSend(filepath, offsets, host) {
     randomFile.read(o.value, o.size, function(err, chunk) {
       var c = net.connect(o.port, host, function() {
         bytes += chunk.length;
+        console.log('sendind chunk', chunk.length, bytes);
         c.write(chunk);
         c.end();
       });
       c.on('close', function() {
+        console.log('socket ended');
         var i = clients.indexOf(c);
         clients.splice(i, 1);
         if (clients.length === 0) {
           console.log('Transfer finished');
+          console.log('clients', clients.length, clients);
           randomFile.close();
         }
       });
