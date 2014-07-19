@@ -91,13 +91,14 @@ function spawnAndReceive(filename, filesize, chunks) {
     var s = net.createServer(function(socket) {
       var offset = c.value;
       socket.on('data', function(buf) {
+        console.log('socket buffer', buf.toString());
         if (start_time === null) {
           start_time = Date.now();
         }
         randomFile.write(offset, buf, function(err) {
           bytes += buf.length;
           offset += buf.length;
-          //console.log('chunk', buf.length, bytes, filesize);
+          console.log('chunk', buf.length, bytes, filesize, buf.toString());
           if (bytes === filesize) {
             console.log('servers', servers.length, servers);
             servers.forEach(function(serv) {
@@ -212,7 +213,7 @@ function splitAndSend(filepath, offsets, host) {
           start_time = Date.now();
         }
         bytes += chunk.length;
-        console.log('sendind chunk', chunk.length, bytes);
+        console.log('sendind chunk', chunk.length, bytes, chunk.toString());
         c.write(chunk);
         c.end();
       });
