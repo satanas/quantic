@@ -89,18 +89,18 @@ function spawnAndReceive(filename, filesize, chunks) {
 
   chunks.forEach(function(c) {
     var s = net.createServer(function(socket) {
-      var offset = c.value;
+      var startOffset = c.value;
+      var currOffset = c.value;
       socket.on('data', function(buf) {
-        //console.log('socket buffer', buf.toString());
         if (start_time === null) {
           start_time = Date.now();
         }
-        randomFile.write(offset, buf, function(err, written, buf) {
-          console.log('chunk', c.value, offset, buf.length, bytes, written, filesize);
+        randomFile.write(currOffset, buf, function(err, written, b) {
+          console.log('chunk', startOffset, currOffset, written, bytes, filesize);
           console.log('***********************************');
-          console.log(buf.toString());
-          bytes += buf.length;
-          offset += buf.length;
+          //console.log(b.toString());
+          bytes += written;
+          currOffset += written;
           if (bytes === filesize) {
             //console.log('servers', servers.length, servers);
             servers.forEach(function(serv) {
