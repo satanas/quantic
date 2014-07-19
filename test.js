@@ -1,8 +1,14 @@
 var net = require('net');
 var fs = require('fs');
-var ssdp = require('upnp-ssdp');
+var path = require('path');
+var raf = require('random-access-file');
+var http = require('http');
+var url = require('url');
 
 var HEADER_SIZE = 16;
+//var MESSAGES_PORT = 6666;
+var MESSAGES_PORT = 5000;
+var DEFAULT_PORT = 6667;
 
 var bytes = 0;
 var filename = '';
@@ -11,8 +17,6 @@ var start_time = null;
 var end_time = null;
 var buddies = [];
 
-var upnpClient = new ssdp();
-var upnpServer = new ssdp();
 //var units = ['TB', 'GB', 'MB', 'KB', 'Bytes']
 
 //function humanizeSize(size) {
@@ -31,80 +35,196 @@ var upnpServer = new ssdp();
 //  }
 //  return (size / Math.pow(10, power)) + " " + units[index];
 //}
+//
+
+Offset = function(value, size, port) {
+  this.value = value;
+  this.size = size;
+  this.port = port;
+}
+
+var bus = http.createServer(function(req, res) {
+  var parsedUrl = url.parse(req.url, true);
+
+  if (parsedUrl.pathname === '/initialize') {
+    console.log('Initializing');
+    var filename = req.headers.filename;
+    var filesize = req.headers.filesize;
+    var chunks = []
+    req.headers.chunks.split(",").forEach(function(c) {
+      var value = c.split("-")[0];
+      var size = c.split("-")[1];
+      var port = c.split("-")[2];
+      chunks.push(new Offset(value, size, port));
+    });
+    res.writeHead(200);
+    res.end();
+    spawnAndReceive(filename, filesize, chunks);
+  }
+});
 
 function receiveData() {
-  var server = net.createServer(function(socket) {
-    socket.on('data', function(buf) {
-      if (start_time === null) {
-        start_time = Date.now();
-      }
+  bus.listen(MESSAGES_PORT);
 
-      bytes += buf.length;
-      if (bytes >= HEADER_SIZE && stream === null) {
-        var header = buf.slice(0, HEADER_SIZE).toString();
-        header = header.replace(/\n/g, "");
-        console.log('header: ' + header + '...');
-        filename = header.slice(5);
-        stream = fs.createWriteStream(filename);
-        stream.write(buf.slice(HEADER_SIZE));
-        bytes -= HEADER_SIZE;
-      } else {
-        stream.write(buf);
-      }
+  // Sequential approach
+  ////var server = net.createServer(function(socket) {
+  ////  socket.on('data', function(buf) {
+  ////    if (start_time === null) {
+  ////      start_time = Date.now();
+  ////    }
+
+  ////    bytes += buf.length;
+  ////    if (bytes >= HEADER_SIZE && stream === null) {
+  ////      var header = buf.slice(0, HEADER_SIZE).toString();
+  ////      header = header.replace(/\n/g, "");
+  ////      console.log('header: ' + header + '...');
+  ////      filename = header.slice(5);
+  ////      stream = fs.createWriteStream(filename);
+  ////      stream.write(buf.slice(HEADER_SIZE));
+  ////      bytes -= HEADER_SIZE;
+  ////    } else {
+  ////      stream.write(buf);
+  ////    }
+  ////  });
+
+  ////  socket.on('end', function() {
+  ////    stream.end();
+  ////    end_time = Date.now();
+  ////    var total_time = end_time - start_time;
+
+  ////    console.log('Transfer finished');
+  ////    console.log('Received: ' + bytes + ' bytes');
+  ////    console.log('Time spent: ' + total_time + 'ms');
+  ////    console.log('Rate: ' + ((bytes / 1000) / (total_time / 1000)) + ' KB/sec');
+  ////    reset();
+  ////  });
+  ////});
+
+  //server.listen(DEFAULT_PORT);
+}
+
+function spawnAndReceive(filename, filesize, chunks) {
+  console.log(filename, filesize, chunks);
+
+  var randomFile = raf(filename);
+  var servers = []
+  chunks.forEach(function(c) {
+    var s = net.createServer(function(socket) {
+      socket.on('data', function(buf) {
+        randomFile.write(c.value, buf, function(err) {
+          console.log('chunk done');
+          var i = servers.indexOf(s);
+          servers.splice(i, 1);
+          if (servers.length === 0) {
+            console.log('Transfer finished');
+            randomFile.close();
+          }
+        });
+      });
     });
 
-    socket.on('end', function() {
-      stream.end();
-      end_time = Date.now();
-      var total_time = end_time - start_time;
-
-      console.log('Transfer finished');
-      console.log('Received: ' + bytes + ' bytes');
-      console.log('Time spent: ' + total_time + 'ms');
-      console.log('Rate: ' + ((bytes / 1000) / (total_time / 1000)) + ' KB/sec');
-      reset();
-    });
+    s.listen(c.port);
+    servers.push(s);
   });
-
-  upnpServer.announce({name:'192.168.0.101', port:6666});
-  server.listen(6666);
 }
 
 function sendData(filepath, host) {
   host = typeof host !== 'undefined' ? host : '127.0.0.1';
-  //var client = net.connect(6666, '192.168.0.101', function() {
-  var client = net.connect(6666, host, function() {
-    console.log('Sending file ' + filepath);
-    client.write('SNDF-song.mp3\n\n\n');
+  console.log('Sending file', filepath, 'to', host);
 
-    stream = fs.createReadStream(filepath);
-    stream.on('data', function(chunk) {
-      if (start_time === null) {
-        start_time = Date.now();
-      }
-      bytes += chunk.length;
-      client.write(chunk);
-    });
+  // Splitted approach
+  var pieces = 3;
+  var stats = fs.statSync(filepath);
+  var offsets = [];
+  var accum = 0;
+  var port = DEFAULT_PORT;
+  chunks = []
+  for (var i=0; i<pieces; i++) {
+    var next = Math.ceil(stats.size / pieces);
+    if (accum + next > stats.size)
+      next = stats.size - accum;
+    offsets.push(new Offset(accum, next, port));
+    chunks.push(accum + "-" + next + "-" + port);
+    accum += Math.ceil(stats.size / pieces);
+    port += 1;
+  }
 
-    stream.on('end', function() {
-      client.end();
-    });
+  var req = http.request({
+    host: host,
+    port: MESSAGES_PORT,
+    path: '/initialize',
+    headers: {
+      'Filename': path.basename(filepath),
+      'Filesize': stats.size,
+      'Chunks': chunks.join(","),
+    }
+  }, function(res) {
+    console.log('Initialized');
+    console.log(res.statusCode);
+    console.log(res.headers);
+    splitAndSend(filepath, offsets, host);
   });
 
-  client.on('close', function() {
-      end_time = Date.now();
-      var total_time = end_time - start_time;
+  req.on('error', function(e) {
+    console.log('error initializing', e);
+  });
+  req.end();
 
-      console.log('Transfer finished');
-      console.log('Sent: ' + bytes + ' bytes');
-      console.log('Time spent: ' + total_time + 'ms');
-      console.log('Rate: ' + ((bytes / 1000) / (total_time / 1000)) + ' KB/sec');
-      reset();
+  // Sequential approach
+  //var client = net.connect(6666, host, function() {
+  //  client.write('SNDF-song.mp3\n\n\n');
+
+  //  stream = fs.createReadStream(filepath);
+  //  stream.on('data', function(chunk) {
+  //    if (start_time === null) {
+  //      start_time = Date.now();
+  //    }
+  //    bytes += chunk.length;
+  //    client.write(chunk);
+  //  });
+
+  //  stream.on('end', function() {
+  //    client.end();
+  //  });
+  //});
+
+  //client.on('close', function() {
+  //    end_time = Date.now();
+  //    var total_time = end_time - start_time;
+
+  //    console.log('Transfer finished');
+  //    console.log('Sent: ' + bytes + ' bytes');
+  //    console.log('Time spent: ' + total_time + 'ms');
+  //    console.log('Rate: ' + ((bytes / 1000) / (total_time / 1000)) + ' KB/sec');
+  //    reset();
+  //});
+}
+
+function splitAndSend(filepath, offsets, host) {
+  var clients = [];
+  var randomFile = raf(filepath);
+
+  offsets.forEach(function(o) {
+    randomFile.read(o.value, o.size, function(err, chunk) {
+      var c = net.connect(o.port, host, function() {
+        bytes += chunk.length;
+        c.write(chunk);
+        c.end();
+      });
+      c.on('close', function() {
+        var i = clients.indexOf(c);
+        clients.splice(i, 1);
+        if (clients.length === 0) {
+          console.log('Transfer finished');
+          randomFile.close();
+        }
+      });
+      clients.push(c);
+    });
   });
 }
 
 function listBuddies() {
-  upnpClient.search('239.255.255.250');
 }
 
 function reset() {
@@ -125,19 +245,11 @@ function printUsage(errorMessage) {
   process.exit();
 }
 
-upnpClient.on('up', function(address) {
-  console.log('buddy added', address, 'chao');
-});
-
-upnpClient.on('down', function(address) {
-  console.log('buddy removed', address, 'goodbye');
-});
-
 if (process.argv.length <= 2) {
   printUsage('Missing parameters');
 } else {
   var command = process.argv[2];
-  var path = process.argv[3];
+  var filepath = process.argv[3];
   var host = process.argv[4];
 
   if (command === 'list') {
@@ -145,12 +257,12 @@ if (process.argv.length <= 2) {
   } else if (command === 'receive') {
     receiveData();
   } else if (command == 'send') {
-    if (typeof path === 'undefined') {
+    if (typeof filepath === 'undefined') {
       printUsage('Specify a file to send');
     }
     if (typeof host === 'undefined') {
       printUsage('Specify a host to send the file');
     }
-    sendData(path, host);
+    sendData(filepath, host);
   }
 }
