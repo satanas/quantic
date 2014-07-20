@@ -139,7 +139,7 @@ function sendData(filepath, host) {
   console.log('Sending file', filepath, 'to', host);
 
   // Splitted approach
-  var pieces = 3;
+  var pieces = 6;
   var stats = fs.statSync(filepath);
   var offsets = [];
   var accum = 0;
